@@ -1,4 +1,4 @@
-"""Deterministic calculator for the global-equity-valuation skill (v1.3).
+"""Deterministic calculator for the global-equity-valuation skill (v1.4).
 
 Four valuation engines plus the output rules. Any consistent unit works
 (for example, US$ billions for cash flows and billions of shares -> US$ per share).
@@ -9,6 +9,7 @@ CLI quick start:
     python calc.py C --fcf 1 --shares 0.05 [--high-cost]
     python calc.py D --assets 5 3 2 --net-debt 1.5 --shares 0.2 --haircut 0.10
     (add --price P to get the Buy/Hold call)
+    (add --dividends-3y D --net-income-3y N [--fcf-3y F] for the dividend-trap check and thesis status)
 """
 from __future__ import annotations
 
@@ -120,6 +121,30 @@ def total_return(price: float, entry: float) -> float:
     return price / entry - 1
 
 
+def dividend_trap(dividends_3y: float, net_income_3y: float,
+                  fcf_3y: float | None = None) -> dict[str, list[str]]:
+    """Dividend-trap check over the last three fiscal years (sums, same currency).
+
+    Critical: dividends paid above net income (payout > 100%).
+    Monitor: dividends paid above free cash flow (skip for banks and insurers).
+    """
+    out: dict[str, list[str]] = {"critical": [], "monitor": []}
+    if dividends_3y > max(net_income_3y, 0.0):
+        out["critical"].append("dividend trap: payout above 100% over 3 years")
+    if fcf_3y is not None and dividends_3y > fcf_3y:
+        out["monitor"].append("free cash flow below dividends over 3 years")
+    return out
+
+
+def thesis_status(critical: list[str] | tuple = (), monitor: list[str] | tuple = ()) -> str:
+    """Separate from the Buy/Hold call. Critical review > Monitoring > Consolidated."""
+    if critical:
+        return "Critical review (" + "; ".join(critical) + ")"
+    if monitor:
+        return "Monitoring (" + "; ".join(monitor) + ")"
+    return "Consolidated"
+
+
 @dataclass
 class Result:
     ceiling: float
@@ -165,6 +190,11 @@ def _cli() -> None:
     d.add_argument("--alternatives", type=float, nargs="*", help="equity value from other methods")
     for sp in (a, b, c, d):
         sp.add_argument("--price", type=float)
+        sp.add_argument("--dividends-3y", type=float, help="dividends paid, sum of the last 3 fiscal years")
+        sp.add_argument("--net-income-3y", type=float, help="net income, sum of the same 3 years")
+        sp.add_argument("--fcf-3y", type=float, help="free cash flow, sum of the same 3 years (skip for banks)")
+        sp.add_argument("--critical", action="append", default=[], help="qualitative thesis-break flag (repeatable)")
+        sp.add_argument("--monitor", action="append", default=[], help="qualitative flag to watch (repeatable)")
     x = p.parse_args()
     if x.engine == "A":
         res = engine_a(x.base, x.roic, x.reinvest, x.shares, x.r, x.margin, g_terminal=x.g_terminal, g=x.g)
@@ -180,6 +210,14 @@ def _cli() -> None:
     print(f"{'rounded_ceiling':18}: {fin.rounded_ceiling:.2f}")
     if fin.call:
         print(f"{'call':18}: {fin.call}")
+    critical, monitor = list(x.critical), list(x.monitor)
+    if fin.rounded_ceiling <= 0:
+        critical.append("ceiling at zero")
+    if x.dividends_3y is not None and x.net_income_3y is not None:
+        trap = dividend_trap(x.dividends_3y, x.net_income_3y, x.fcf_3y)
+        critical += trap["critical"]
+        monitor += trap["monitor"]
+    print(f"{'thesis_status':18}: {thesis_status(critical, monitor)}")
 
 
 if __name__ == "__main__":
