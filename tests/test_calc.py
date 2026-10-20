@@ -89,5 +89,25 @@ class OutputRules(unittest.TestCase):
         self.assertAlmostEqual(calc.total_return(150, 100), 0.5)
 
 
+class DividendTrapAndStatus(unittest.TestCase):
+    def test_payout_above_100_is_critical(self):
+        r = calc.dividend_trap(dividends_3y=12, net_income_3y=10)
+        self.assertEqual(len(r["critical"]), 1)
+        self.assertEqual(r["monitor"], [])
+
+    def test_losses_with_dividends_is_critical(self):
+        self.assertTrue(calc.dividend_trap(1, -2)["critical"])
+
+    def test_fcf_short_of_dividends_is_monitor_only(self):
+        r = calc.dividend_trap(dividends_3y=9, net_income_3y=10, fcf_3y=8)
+        self.assertEqual(r["critical"], [])
+        self.assertEqual(len(r["monitor"]), 1)
+
+    def test_status_priority(self):
+        self.assertEqual(calc.thesis_status(), "Consolidated")
+        self.assertTrue(calc.thesis_status([], ["a"]).startswith("Monitoring"))
+        self.assertTrue(calc.thesis_status(["b"], ["a"]).startswith("Critical review"))
+
+
 if __name__ == "__main__":
     unittest.main()

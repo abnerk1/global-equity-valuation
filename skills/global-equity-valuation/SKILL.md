@@ -3,7 +3,7 @@ name: global-equity-valuation
 description: Values US stocks and ADRs with four valuation engines (two-stage ROIC compounder, shareholder yield + growth, high required yield, sum of the parts) across the Global Yield, Quality Leaders and Hidden Gems portfolios, returning a price ceiling, expected dividend yield and Buy/Hold call.
 ---
 
-# Global Equity Valuation (v1.3)
+# Global Equity Valuation (v1.4)
 
 Goal: given an international ticker, reach the price ceiling and the Buy/Hold call by rebuilding the
 "1 + 1" (assumptions + formula) behind the result. The method has four valuation engines,
@@ -101,6 +101,12 @@ Price ceiling = lowest method per share/ADR × (1 − 10–15% haircut), rounded
 - **Expected dividend yield** = last declared dividend (including variable) × frequency ÷ current price; "-" when there is no regular dividend.
 - Round the ceiling down: ≥ 1,000 → multiple of 50; ≥ 100 → of 10; ≥ 20 → whole dollar; ≥ 2 → 0.05; below that → cent.
 - Ceilings are "sticky": set at entry and revised only after a material event (merger, spin-off, split, thesis change).
+- **Dividend trap** (v1.4): over the last three fiscal years, dividends paid above net income (payout > 100%) is a dividend trap. Dividends paid above free cash flow over the same three years is a flag to monitor (skip the FCF test for banks and insurers, whose cash flow statement does not measure capacity to pay). Three years, not one, so a special dividend from excess capital is not mistaken for an unsustainable payout. The check never changes the ceiling or the call.
+- **Thesis status** (v1.4), separate from the call:
+  - **Critical review**: dividend trap; ceiling at zero; a thesis-break event (dividend cut, guidance withdrawn, covenant breach, loss of the low-cost position, a regulator or court decision against the core business).
+  - **Monitoring**: free cash flow below dividends; latest-year earnings more than 20% away from the normalized base; a pending material event (merger, spin-off, large issuance, management change).
+  - **Consolidated**: none of the above.
+  The call says whether the price is attractive; the status says whether the thesis still holds. Hold + Consolidated is a good company at a full price; Buy + Critical review means reading the latest filing before anything else.
 
 ## 6. Report format
 1. Header: ticker, company, portfolio, engine, date, share price.
@@ -108,7 +114,7 @@ Price ceiling = lowest method per share/ADR × (1 − 10–15% haircut), rounded
 3. Recent results: diluted shares, market cap, revenue, margins, FCF, debt, buybacks/dividends.
 4. Valuation: numbered assumptions → calculation (code output) → fair value → ceiling; sensitivity for commodities or leveraged cases.
 5. Risks (3–5) and what mitigates each one.
-6. Summary table: expected dividend yield | entry | current price | price ceiling | total return | call.
+6. Summary table: expected dividend yield | entry | current price | price ceiling | total return | call | thesis status. If the dividend-trap check fires, say so right under the table.
 
 ## 7. Calculation core (use when `calc.py` is not available)
 ```python
@@ -129,6 +135,13 @@ def round_ceiling(c):
     s = 50 if c >= 1000 else 10 if c >= 100 else 1 if c >= 20 else 0.05 if c >= 2 else 0.01
     return round(math.floor(c / s + 1e-9) * s, 2)
 def call(price, ceiling): return "Buy" if price <= ceiling else "Hold"
+def dividend_trap(div3, ni3, fcf3=None):
+    return {"critical": ["dividend trap: payout above 100% over 3 years"] if div3 > max(ni3, 0.0) else [],
+            "monitor": ["free cash flow below dividends over 3 years"] if fcf3 is not None and div3 > fcf3 else []}
+def thesis_status(critical=(), monitor=()):
+    if critical: return "Critical review (" + "; ".join(critical) + ")"
+    if monitor: return "Monitoring (" + "; ".join(monitor) + ")"
+    return "Consolidated"
 ```
 
 ## 8. Limits (analyst judgment that no formula replicates)

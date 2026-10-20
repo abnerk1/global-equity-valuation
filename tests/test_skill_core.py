@@ -37,6 +37,12 @@ class CoreMatchesCalc(unittest.TestCase):
             self.assertEqual(self.core["round_ceiling"](c), calc.round_ceiling(c))
         self.assertEqual(self.core["call"](101, 100), calc.call(101, 100))
 
+    def test_dividend_trap_and_status(self):
+        for args in ((12, 10, None), (9, 10, 8), (9, 10, 11), (1, -2, None)):
+            self.assertEqual(self.core["dividend_trap"](*args), calc.dividend_trap(*args))
+        for crit, mon in (([], []), (["x"], ["y"]), ([], ["y", "z"])):
+            self.assertEqual(self.core["thesis_status"](crit, mon), calc.thesis_status(crit, mon))
+
 
 if __name__ == "__main__":
     unittest.main()

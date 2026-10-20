@@ -14,6 +14,7 @@ This skill makes the agent show its work:
 - **One formula per engine.** The price ceiling is the output of a written formula with documented defaults (10% real discount rate, 20% margin of safety, 20–25% required yield for cyclical or leveraged names).
 - **Conservatism by default.** Earnings below the recent average, no growth after year 10, optionality valued at zero.
 - **Deterministic output.** Buy when the price is at or below the ceiling, Hold when it is above. Ceilings are rounded with a fixed rule.
+- **Thesis status, separate from the call.** *Consolidated*, *Monitoring* or *Critical review*, with a dividend-trap check (dividends above net income or free cash flow over three years). The call says whether the price is attractive; the status says whether the thesis still holds.
 - **Primary sources only.** 10-K, 10-Q, 20-F, 8-K and company investor relations. No third-party price targets.
 
 ## The three portfolios
@@ -80,6 +81,8 @@ python skills/global-equity-valuation/calc.py A --base 10 --roic 0.20 --reinvest
 python skills/global-equity-valuation/calc.py B --fcf 3 --g 0.04 --shares 1.0
 python skills/global-equity-valuation/calc.py C --fcf 1 --shares 0.05 [--high-cost]
 python skills/global-equity-valuation/calc.py D --assets 5 3 2 --net-debt 1 --shares 0.1 --haircut 0.10
+python skills/global-equity-valuation/calc.py B --fcf 3 --g 0.04 --shares 1.0 --price 45 \
+    --dividends-3y 9 --net-income-3y 10 --fcf-3y 8      # adds the dividend-trap check and thesis status
 python -m unittest discover -s tests
 ```
 
